@@ -115,6 +115,7 @@ class MailTMAccount:
         self._address = address
         self._password = password
         self._token_info = {"token": None, "time": time.time()}
+        self.refresh_token()
 
     @property
     def address(self):
@@ -130,7 +131,7 @@ class MailTMAccount:
         """
         return self._password
 
-    def _refresh_token(self) -> str:
+    def refresh_token(self) -> str:
         """
         Fetch and update the authentication token.
 
@@ -149,13 +150,7 @@ class MailTMAccount:
         """
         if time.time() - self._token_info["time"] < 590:
             return self._token_info["token"]
-        return self._refresh_token()
-
-    def refresh_token(self) -> str:
-        """
-        Manually refresh and return the authentication token.
-        """
-        return self._refresh_token()
+        return self.refresh_token()
 
     @property
     def account_info(self):

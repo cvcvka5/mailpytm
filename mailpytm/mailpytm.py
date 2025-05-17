@@ -2,7 +2,7 @@ from typing import Dict, List
 import requests
 import random
 import string
-from exceptions import RegistrationFailed, TooManyRequests, TokenError, FetchMessagesFailed, FetchAccountFailed
+from .exceptions import RegistrationFailed, TooManyRequests, TokenError, FetchMessagesFailed, FetchAccountFailed
 import time
 
 

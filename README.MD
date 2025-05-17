@@ -1,4 +1,4 @@
-# mailtm
+# mailpytm
 
 A Python client library for the [mail.tm](https://mail.tm) temporary email service API.
 
@@ -15,14 +15,14 @@ This package allows you to easily create disposable email accounts, fetch messag
 ## Installation
 
 ```bash
-pip install mailtm
+pip install mailpytm
 ```
 
 ## Usage
 
 ```python
-from mailtm import MailTMApi, MailTMAccount
-from mailtm.exceptions import TooManyRequests, RegistrationFailed
+from mailpytm import MailTMApi, MailTMAccount
+from mailpytm.exceptions import TooManyRequests, RegistrationFailed
 
 # Create a new temporary email account
 account_info = MailTMApi.create_email()
@@ -43,7 +43,7 @@ with MailTMAccount(account_info["address"], account_info["password"]) as account
 
 ## Exceptions
 
-Exceptions are available under `mailtm.exceptions` for fine-grained error handling:
+Exceptions are available under `mailpytm.exceptions` for fine-grained error handling:
 
 - `TooManyRequests`
 - `RegistrationFailed`
@@ -53,7 +53,7 @@ Exceptions are available under `mailtm.exceptions` for fine-grained error handli
 
 ## Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/yourusername/mailtm-python/issues).
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/cvcvka5/mailpytm/issues).
 
 ## License
 

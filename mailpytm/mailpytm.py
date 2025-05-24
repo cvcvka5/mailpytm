@@ -4,12 +4,17 @@ import random
 import string
 from .exceptions import RegistrationFailed, TooManyRequests, TokenError, FetchMessagesFailed, FetchAccountFailed
 import time
+from abc import ABC, abstractmethod
 
 
 BASE_URL = "https://api.mail.tm"
 
 
 class MailTMApi:
+    def __new__(cls, *args, **kwargs):
+        raise TypeError(f"{cls.__name__} is a utility class and cannot be instantiated.")
+
+    
     @staticmethod
     def create_email(username: str = None, password: str = None, domain: str = None, length: int = 15) -> Dict[str, str]:
         """

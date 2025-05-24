@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="mailpytm",                     # Your package name on PyPI
-    version="0.9.8",                   # Initial version
+    version="1.0.0",                   # Initial version
     author="cvcvka5",
     author_email="cvcvka5@gmail.com",
     description="A Python client for the mail.tm temporary email service API",

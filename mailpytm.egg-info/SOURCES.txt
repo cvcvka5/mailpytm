@@ -1,0 +1,11 @@
+LICENSE
+README.md
+pyproject.toml
+setup.py
+mailpytm/__init__.py
+mailpytm/exceptions.py
+mailpytm/mailpytm.py
+mailpytm.egg-info/PKG-INFO
+mailpytm.egg-info/SOURCES.txt
+mailpytm.egg-info/dependency_links.txt
+mailpytm.egg-info/top_level.txt

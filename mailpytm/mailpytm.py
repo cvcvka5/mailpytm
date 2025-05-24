@@ -4,7 +4,6 @@ import random
 import string
 from .exceptions import RegistrationFailed, TooManyRequests, TokenError, FetchMessagesFailed, FetchAccountFailed
 import time
-from abc import ABC, abstractmethod
 
 
 BASE_URL = "https://api.mail.tm"

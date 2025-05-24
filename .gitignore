@@ -1,5 +1,4 @@
 dist/
 dist/*
-
-*.egg-info/
-*.egg-info/*
+mailpytm.egg-info/
+mailpytm.egg-info/*

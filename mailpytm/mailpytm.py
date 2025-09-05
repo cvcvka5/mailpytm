@@ -2,60 +2,75 @@ from typing import Dict, List
 import requests
 import random
 import string
-from .exceptions import RegistrationFailed, TooManyRequests, TokenError, FetchMessagesFailed, FetchAccountFailed
+import secrets
+from .exceptions import (
+    RegistrationFailed,
+    TooManyRequests,
+    TokenError,
+    FetchMessagesFailed,
+    FetchAccountFailed
+)
 import time
-
 
 BASE_URL = "https://api.mail.tm"
 
 
 class MailTMApi:
+    """
+    Utility class for interacting with the mail.tm API.
+
+    Provides static methods to:
+    - Create email addresses
+    - Register accounts
+    - Fetch auth tokens
+    - Retrieve available domains
+    """
+
     def __new__(cls, *args, **kwargs):
+        """
+        Prevent instantiation of this utility class.
+        """
         raise TypeError(f"{cls.__name__} is a utility class and cannot be instantiated.")
 
-    
     @staticmethod
-    def create_email(username: str = None, password: str = None, domain: str = None, length: int = 15) -> Dict[str, str]:
+    def create_email(username: str = None, password: str = None, domain: str = None, length: int = 15) -> "MailTMAccount":
         """
-        Create a new email account.
+        Create a new email account on mail.tm.
 
-        Optional parameters:
-        - username: desired username; if None, a random one is generated.
-        - password: desired password; if None, a random one is generated.
-        - domain: email domain; if None, a random available domain is selected.
-        - length: length of generated username if not provided.
+        Args:
+            username (str, optional): Desired username. If None, a random one is generated.
+            password (str, optional): Desired password. If None, a random one is generated.
+            domain (str, optional): Domain to use. If None, a random domain is chosen.
+            length (int): Length of generated username if not provided.
 
-        Returns a dictionary with 'address' and 'password'.
+        Returns:
+            MailTMAccount: Initialized account object.
         """
-        username = username if username else MailTMApi._random_string(length)
+        username = username if username else MailTMApi._random_string(length, secure=True)
         domain = domain if domain else MailTMApi.get_domain()["domain"]
         address = f"{username}@{domain}"
-        password = password if password else MailTMApi._random_string(20)
+        password = password if password else MailTMApi._random_string(20, secure=True)
 
+        # Register account on mail.tm
         MailTMApi.register_account(address, password)
-
-        return {"address": address, "password": password}
+        return MailTMAccount(address=address, password=password)
 
     @staticmethod
     def register_account(address: str, password: str):
         """
-        Register a new account with mail.tm.
+        Register a new account on mail.tm.
 
         Raises:
-            TooManyRequests: on HTTP 429 rate limit response.
-            RegistrationFailed: on registration failure or duplicate email.
+            TooManyRequests: If rate-limited.
+            RegistrationFailed: If registration fails or email exists.
         """
-        response = requests.post(f"{BASE_URL}/accounts", json={
-            "address": address,
-            "password": password
-        })
+        response = requests.post(f"{BASE_URL}/accounts", json={"address": address, "password": password})
 
         if response.status_code != 201:
             if response.status_code == 429:
-                raise TooManyRequests(f"Registration with mail '{address}' failed.")
+                raise TooManyRequests(f"Registration with mail '{address}' failed due to rate limiting.")
             elif response.status_code == 409:
                 raise RegistrationFailed(f"Registration with mail '{address}' failed. Mail already exists.")
-
             raise RegistrationFailed(f"Registration with mail '{address}' failed.")
 
         return response.json()
@@ -63,23 +78,18 @@ class MailTMApi:
     @staticmethod
     def fetch_token(address: str, password: str) -> str:
         """
-        Retrieve authentication token for an account.
+        Fetch authentication token for an account.
 
         Raises:
-            TokenError: if token cannot be fetched or response is invalid.
+            TokenError: If token cannot be fetched or response invalid.
         """
-        response = requests.post(f"{BASE_URL}/token", json={
-            "address": address,
-            "password": password
-        })
-
+        response = requests.post(f"{BASE_URL}/token", json={"address": address, "password": password})
         if response.status_code != 200:
             raise TokenError(f"Token fetch failed for {address}: {response.text}")
 
         data = response.json()
         if "token" not in data:
             raise TokenError(f"Token not found in response for {address}")
-
         return data["token"]
 
     @staticmethod
@@ -88,33 +98,59 @@ class MailTMApi:
         Get a random available domain from mail.tm.
 
         Raises:
-            RuntimeError: if no domains are available.
+            RuntimeError: If no domains are available.
         """
         response = requests.get(f"{BASE_URL}/domains")
-        domains = response.json()
-        if not domains:
+        members = response.json().get("hydra:member", [])
+        if not members:
             raise RuntimeError("❌ No domains available from mail.tm")
-        return random.choice(domains["hydra:member"])
+        return random.choice(members)
 
     @staticmethod
     def get_auth_header(token: str) -> Dict:
         """
-        Generate authorization header using the provided token.
+        Generate an authorization header for a given token.
         """
         return {"Authorization": f"Bearer {token}"}
 
     @staticmethod
-    def _random_string(length: int) -> str:
+    def _random_string(length: int, secure: bool = False) -> str:
         """
-        Generate a random string of lowercase letters and digits of given length.
+        Generate a random string of lowercase letters and digits.
+
+        Args:
+            length (int): Length of string.
+            secure (bool): Use secrets.choice for cryptographically secure string.
+
+        Returns:
+            str: Randomly generated string.
         """
-        return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+        chars = string.ascii_lowercase + string.digits
+        if secure:
+            return ''.join(secrets.choice(chars) for _ in range(length))
+        return ''.join(random.choices(chars, k=length))
 
 
 class MailTMAccount:
+    """
+    Represents a mail.tm account with email and password.
+
+    Provides methods to:
+    - Fetch and refresh tokens
+    - Retrieve messages
+    - Mark messages as read
+    - Delete messages or account
+    - Wait for new messages
+    """
+
     def __init__(self, address: str, password: str):
         """
-        Initialize MailTMAccount with email address and password.
+        Initialize account with email and password.
+        Automatically fetches a token.
+
+        Args:
+            address (str): Email address
+            password (str): Account password
         """
         self._address = address
         self._password = password
@@ -123,23 +159,20 @@ class MailTMAccount:
 
     @property
     def address(self):
-        """
-        Get the email address.
-        """
+        """Return email address."""
         return self._address
 
     @property
     def password(self):
-        """
-        Get the account password.
-        """
+        """Return account password."""
         return self._password
 
     def refresh_token(self) -> str:
         """
-        Fetch and update the authentication token.
+        Fetch and refresh auth token for this account.
 
-        Returns the new token.
+        Returns:
+            str: New token
         """
         token = MailTMApi.fetch_token(self.address, self.password)
         self._token_info["token"] = token
@@ -149,20 +182,19 @@ class MailTMAccount:
     @property
     def token(self) -> str:
         """
-        Return the current token if valid (~10 minutes old),
-        otherwise refresh and return a new token.
+        Return current valid token (~10 minutes), else refresh.
         """
-        if time.time() - self._token_info["time"] < 590:
+        if time.time() - self._token_info["time"] < 590:  # ~10 minutes
             return self._token_info["token"]
         return self.refresh_token()
 
     @property
-    def account_info(self):
+    def account_info(self) -> Dict:
         """
         Retrieve account information.
 
         Raises:
-            FetchAccountFailed: if the account info cannot be retrieved.
+            FetchAccountFailed: If fetching account info fails.
         """
         resp = requests.get(f"{BASE_URL}/me", headers=MailTMApi.get_auth_header(self.token))
         if resp.status_code != 200:
@@ -170,37 +202,29 @@ class MailTMAccount:
         return resp.json()
 
     @property
-    def id(self):
-        """
-        Get the unique ID of the account.
-        """
-        return self.account_info["id"]
+    def id(self) -> str:
+        """Return unique account ID."""
+        return self.account_info.get("id")
 
     @property
     def messages(self) -> List[Dict]:
         """
-        Retrieve list of messages for this account.
+        Retrieve all messages for this account.
 
         Raises:
-            FetchMessagesFailed: if messages cannot be fetched.
+            FetchMessagesFailed: If fetching messages fails.
         """
         resp = requests.get(f"{BASE_URL}/messages", headers=MailTMApi.get_auth_header(self.token))
         if resp.status_code != 200:
             raise FetchMessagesFailed(f"Failed to get messages: {resp.text}")
         return resp.json().get("hydra:member", [])
 
-    def get_unread_messages(self) -> List[Dict]:
-        """
-        Get a list of unread messages.
-        """
-        return [msg for msg in self.messages if not msg.get("seen", False)]
-
     def get_message_by_id(self, message_id: str) -> Dict:
         """
-        Fetch a message by its ID.
+        Fetch a specific message by ID.
 
         Raises:
-            FetchMessagesFailed: if the message cannot be fetched.
+            FetchMessagesFailed: If fetching message fails.
         """
         resp = requests.get(f"{BASE_URL}/messages/{message_id}", headers=MailTMApi.get_auth_header(self.token))
         if resp.status_code != 200:
@@ -209,10 +233,10 @@ class MailTMAccount:
 
     def get_message_source(self, source_id: str) -> Dict:
         """
-        Fetch raw source data of a message by its source ID.
+        Fetch the raw source of a message.
 
         Raises:
-            FetchMessagesFailed: if the source cannot be fetched.
+            FetchMessagesFailed: If fetching source fails.
         """
         resp = requests.get(f"{BASE_URL}/sources/{source_id}", headers=MailTMApi.get_auth_header(self.token))
         if resp.status_code != 200:
@@ -221,68 +245,75 @@ class MailTMAccount:
 
     def mark_message_as_read(self, message_id: str) -> bool:
         """
-        Mark a message as read by ID.
+        Mark a message as read.
 
-        Raises:
-            FetchMessagesFailed: if marking as read fails.
+        Returns:
+            bool: True if message marked as read.
         """
         headers = MailTMApi.get_auth_header(self.token)
         headers["Content-Type"] = "application/merge-patch+json"
-
-        resp = requests.patch(f"{BASE_URL}/messages/{message_id}", headers=headers, json={})
-
+        resp = requests.patch(f"{BASE_URL}/messages/{message_id}", headers=headers, json={"seen": True})
         if resp.status_code != 200:
             raise FetchMessagesFailed(f"Failed to mark message {message_id} as read: {resp.text}")
         return resp.json().get("seen", False)
 
     def delete_message(self, message_id: str) -> bool:
         """
-        Delete a message by its ID.
+        Delete a message by ID.
 
-        Returns True if deletion succeeded.
+        Returns:
+            bool: True if deletion succeeded.
         """
         resp = requests.delete(f"{BASE_URL}/messages/{message_id}", headers=MailTMApi.get_auth_header(self.token))
         return resp.status_code == 204
 
-    def wait_for_message(self, subject_contains: str, timeout: int = 60, interval: int = 5) -> Dict:
+    def wait_for_new_message(self, subject_contains: str = None, timeout: int = 60, interval: int = 5) -> Dict:
         """
-        Poll for a message containing `subject_contains` in the subject line.
+        Wait for a new message, optionally filtering by subject.
+        Ignores messages that were already present when called.
 
-        Polls every `interval` seconds, up to `timeout` seconds total.
+        Args:
+            subject_contains (str, optional): Text to match in subject. Defaults to None (any new message).
+            timeout (int): Max seconds to wait.
+            interval (int): Polling interval in seconds.
+
+        Returns:
+            dict: First new message matching filter.
 
         Raises:
-            TimeoutError: if no matching message is found within the timeout.
+            TimeoutError: If no message found within timeout.
         """
-        end = time.time() + timeout
-        while time.time() < end:
+        existing_ids = {msg.get("id") for msg in self.messages}
+
+        end_time = time.time() + timeout
+        while time.time() < end_time:
             for msg in self.messages:
-                if subject_contains.lower() in msg["subject"].lower():
-                    return msg
+                msg_id = msg.get("id")
+                if msg_id not in existing_ids:
+                    if subject_contains is None or subject_contains.lower() in msg.get("subject", "").lower():
+                        return msg
             time.sleep(interval)
-        raise TimeoutError(f"Mail with subject containing '{subject_contains}' not received in {timeout} seconds.")
+
+        raise TimeoutError(f"No new message received matching '{subject_contains}' within {timeout}s")
 
     def delete_account(self) -> bool:
         """
         Delete this mail.tm account.
 
-        Returns True if deletion succeeded.
+        Returns:
+            bool: True if deletion succeeded.
         """
         resp = requests.delete(f"{BASE_URL}/accounts/{self.id}", headers=MailTMApi.get_auth_header(self.token))
         return resp.status_code == 204
 
     def __repr__(self):
+        """String representation of the account."""
         return f"Email('{self._address}')"
 
     def __enter__(self):
-        """
-        Enable usage as a context manager.
-
-        Returns self.
-        """
+        """Support for context manager."""
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """
-        Deletes the account when exiting the context manager.
-        """
+        """Deletes account when exiting context."""
         self.delete_account()

@@ -21,24 +21,59 @@ pip install mailpytm
 ## Usage
 
 ```python
-from mailpytm import MailTMApi, MailTMAccount
-from mailpytm.exceptions import TooManyRequests, RegistrationFailed
+from mailpytm import MailTMApi
 
-# Create a new temporary email account
-account_info = MailTMApi.create_email()
-print("Email Address:", account_info["address"])
-print("Password:", account_info["password"])
+def usage_example():
+    print("=== MailTMApi Usage Example ===")
 
-# Use the account with MailTMAccount
-with MailTMAccount(account_info["address"], account_info["password"]) as account:
-    print(account.messages)  # List messages
+    # 1️⃣ Create a new email account
+    account = MailTMApi.create_email()
+    print(f"Created account: {account.address}")
+    
+    # 2️⃣ Get account token
+    print(f"Token: {account.token[:10]}...")  # truncated
 
-    # Wait for an email with a subject containing 'Verification'
+    # 3️⃣ Get account info
+    info = account.account_info
+    print(f"Account ID: {account.id}")
+    print(f"Account email: {info.get('address')}")
+
+    # 4️⃣ Fetch current messages
+    print(f"Current messages: {len(account.messages)}")
+
+    # 5️⃣ Wait for new message (subject filter optional)
     try:
-        message = account.wait_for_message(subject_contains="Verification", timeout=120)
-        print("Found message:", message)
+        print("Waiting for new messages (timeout 30s)...")
+        new_msg = account.wait_for_new_message(subject_contains=None, timeout=30)
+        print(f"New message received: {new_msg.get('id')}, subject: {new_msg.get('subject')}")
     except TimeoutError:
-        print("No verification email received in time.")
+        print("No new messages arrived during the timeout.")
+
+    # 6️⃣ Mark first message as read if available
+    if account.messages:
+        msg_id = account.messages[0]["id"]
+        seen = account.mark_message_as_read(msg_id)
+        print(f"Message {msg_id} marked as read: {seen}")
+
+    # 7️⃣ Delete first message if available
+    if account.messages:
+        msg_id = account.messages[0]["id"]
+        deleted = account.delete_message(msg_id)
+        print(f"Message {msg_id} deleted: {deleted}")
+
+    # 8️⃣ Use context manager for temporary accounts
+    with MailTMApi.create_email() as temp_account:
+        print(f"Temporary account created: {temp_account.address}")
+        print(f"Token: {temp_account.token[:10]}...")
+
+    # 9️⃣ Delete original account
+    deleted = account.delete_account()
+    print(f"Original account deleted: {deleted}")
+
+    print("=== Usage example finished ===")
+
+if __name__ == "__main__":
+    usage_example()
 ```
 
 ## Exceptions

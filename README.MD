@@ -26,22 +26,22 @@ from mailpytm import MailTMApi
 def usage_example():
     print("=== MailTMApi Usage Example ===")
 
-    # 1️⃣ Create a new email account
+    # Create a new email account
     account = MailTMApi.create_email()
     print(f"Created account: {account.address}")
     
-    # 2️⃣ Get account token
+    # Get account token
     print(f"Token: {account.token[:10]}...")  # truncated
 
-    # 3️⃣ Get account info
+    # Get account info
     info = account.account_info
     print(f"Account ID: {account.id}")
     print(f"Account email: {info.get('address')}")
 
-    # 4️⃣ Fetch current messages
+    # Fetch current messages
     print(f"Current messages: {len(account.messages)}")
 
-    # 5️⃣ Wait for new message (subject filter optional)
+    # Wait for new message (subject filter optional)
     try:
         print("Waiting for new messages (timeout 30s)...")
         new_msg = account.wait_for_new_message(subject_contains=None, timeout=30)
@@ -49,24 +49,24 @@ def usage_example():
     except TimeoutError:
         print("No new messages arrived during the timeout.")
 
-    # 6️⃣ Mark first message as read if available
+    # Mark first message as read if available
     if account.messages:
         msg_id = account.messages[0]["id"]
         seen = account.mark_message_as_read(msg_id)
         print(f"Message {msg_id} marked as read: {seen}")
 
-    # 7️⃣ Delete first message if available
+    # Delete first message if available
     if account.messages:
         msg_id = account.messages[0]["id"]
         deleted = account.delete_message(msg_id)
         print(f"Message {msg_id} deleted: {deleted}")
 
-    # 8️⃣ Use context manager for temporary accounts
+    # Use context manager for temporary accounts
     with MailTMApi.create_email() as temp_account:
         print(f"Temporary account created: {temp_account.address}")
         print(f"Token: {temp_account.token[:10]}...")
 
-    # 9️⃣ Delete original account
+    # Delete original account
     deleted = account.delete_account()
     print(f"Original account deleted: {deleted}")
 
